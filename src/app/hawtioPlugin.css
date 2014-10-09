@@ -1,0 +1,7 @@
+.es .uiApp-header {
+  position: inherit;
+}
+
+.es .uiBrowser-filter {
+  margin-left: -100px;
+}

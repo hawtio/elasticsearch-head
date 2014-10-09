@@ -25,7 +25,15 @@ module.exports = function(grunt) {
 			appcss: {
 				src: fileSets.srcCss,
 				dest: 'dist/app.css'
-			}
+			},
+      hawtiojs: {
+        src: fileSets.hawtioJs,
+        dest: 'dist/hawtioPlugin.js'
+      },
+      hawtiocss: {
+        src: fileSets.hawtioCss,
+        dest: 'dist/hawtioPlugin.css'
+      }
 		},
 
 		copy: {
@@ -50,6 +58,11 @@ module.exports = function(grunt) {
 				cwd: 'src/app/lang/',
 				src: '**',
 				dest: 'dist/lang/'
+			},
+			index: {
+				expand: true,
+				src: 'index.html',
+				dest: 'dist/'
 			}
 		},
 
