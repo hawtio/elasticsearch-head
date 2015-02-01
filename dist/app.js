@@ -3281,7 +3281,7 @@
 	var ui = app.ns("ui");
 	var services = app.ns("services");
 
-	// ( master ) master = true, data = true 
+	// ( master ) master = true, data = true
 	// ( coordinator ) master = true, data = false
 	// ( worker ) master = false, data = true;
 	// ( client ) master = false, data = false;
@@ -3295,7 +3295,7 @@
 	}
 
 	function nodeSort_addr( a, b ) {
-		if (!(a.cluster && b.cluster)) {
+		if (!(a.cluster && b.cluster && a.cluster.transport_address && b.cluster.transport_address)) {
 			return 0;
 		}
 		return a.cluster.transport_address.toString().localeCompare( b.cluster.transport_address.toString() );
