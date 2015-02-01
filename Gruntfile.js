@@ -62,7 +62,12 @@ module.exports = function(grunt) {
 			index: {
 				expand: true,
 				src: 'index.html',
-				dest: 'dist/'
+        dest: 'dist/',
+        options: {
+          process: function (content, srcpath) {
+            return content.replace(/dist\//g, "");
+          }
+        }
 			}
 		},
 
