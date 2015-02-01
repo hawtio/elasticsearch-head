@@ -35,7 +35,7 @@
 			var parent = $(jEv.target).closest("BUTTON");
 			return parent.vOffset()
 				.addY(parent.vSize().y)
-				.addX( right ? parent.vSize().x - this.el.vOuterSize().x : 0 )
+				.addX( right ? parent.vSize().x - this.el.vSize().x : 0 )
 				.asOffset();
 		}
 	});
