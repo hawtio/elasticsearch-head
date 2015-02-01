@@ -1,7 +1,23 @@
+.es {
+  font-size: 12px;
+}
+
 .es .uiApp-header {
   position: inherit;
 }
 
-.es .uiBrowser-filter {
-  margin-left: -100px;
+.es table {
+  width: inherit;
+}
+
+.es h1, .es h2, .es h3 {
+  line-height: normal;
+}
+
+.es INPUT, .es SELECT {
+  margin: 0;
+}
+
+.es .uiApp-body {
+  padding: 0;
 }
