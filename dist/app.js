@@ -1892,8 +1892,10 @@
 			this.el = $(this._main_template());
 		},
 		open: function(jEv) {
-			this._super(jEv);
-			var cx = this; setTimeout(function() { $(document).bind("click", cx._close_handler); }, 50);
+      if (!$(jEv.currentTarget).hasClass('active')) {
+  			this._super(jEv);
+	  		var cx = this; setTimeout(function() { $(document).bind("click", cx._close_handler); }, 50);
+      }
 		},
 		_getItems: function() {
 			return this.config.items;
