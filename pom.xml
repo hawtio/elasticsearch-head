@@ -26,7 +26,7 @@
 
   <groupId>io.hawt.eshead</groupId>
   <artifactId>hawtio-eshead</artifactId>
-  <version>1.0.2-SNAPSHOT</version>
+  <version>1.0.2</version>
   <packaging>war</packaging>
   <description>hawtio :: eshead plugin</description>
 
@@ -57,7 +57,7 @@
     <connection>scm:git:git@github.com:hawtio/elasticsearch-head.git</connection>
     <developerConnection>scm:git:git@github.com:hawtio/elasticsearch-head.git</developerConnection>
     <url>http://github.com/hawtio/elasticsearch-head</url>
-    <tag>HEAD</tag>
+    <tag>hawtio-eshead-1.0.2</tag>
   </scm>
 
   <dependencies>
