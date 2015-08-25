@@ -102,12 +102,12 @@ exports.srcCss = [
 ];
 
 exports.hawtioJs = [
-  'src/vendor/joey/joey.js',
-  'src/vendor/nohtml/jquery-nohtml.js',
-  'src/vendor/graphael/g.raphael.standalone.js',
-  'src/vendor/dateRangeParser/date-range-parser.js',
-  'src/vendor/i18n/i18n.js',
-  'src/app/lang/en_strings.js'
-].concat(exports.srcJs).concat(['src/app/hawtioPlugin.js']);
+	'src/vendor/joey/joey.js',
+	'src/vendor/nohtml/jquery-nohtml.js',
+	'src/vendor/graphael/g.raphael.standalone.js',
+	'src/vendor/dateRangeParser/date-range-parser.js',
+  'src/vendor/i18n/i18n.js']
+  .concat(exports.srcJs)
+  .concat(['src/app/lang/en_strings.js', 'src/app/hawtioPlugin.js']);
 
 exports.hawtioCss = exports.srcCss.concat(['src/app/hawtioPlugin.css'])
