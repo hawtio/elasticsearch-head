@@ -156,6 +156,9 @@
             <goals>
               <goal>grunt</goal>
             </goals>
+            <configuration>
+              <arguments>default --force</arguments>
+            </configuration>
           </execution>
         </executions>
       </plugin>
@@ -201,7 +204,7 @@
           <archive>
             <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
           </archive>
-          <warSourceDirectory>${basedir}/dist</warSourceDirectory>
+          <warSourceDirectory>${basedir}/_site</warSourceDirectory>
           <webXml>${project.build.outputDirectory}/WEB-INF/web.xml</webXml>
         </configuration>
       </plugin>

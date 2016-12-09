@@ -66,17 +66,7 @@ module.exports = function(grunt) {
 				expand: true,
 				cwd: 'src/app/lang/',
 				src: '**',
-				dest: 'dist/lang/'
-			},
-			index: {
-				expand: true,
-				src: 'index.html',
-				dest: '_site/lang/',
-        options: {
-          process: function (content, srcpath) {
-            return content.replace(/dist\//g, "");
-          }
-        }
+				dest: '_site/lang/'
 			}
 		},
 

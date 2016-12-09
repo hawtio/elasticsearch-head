@@ -14,7 +14,7 @@ var EsHead = (function (EsHead) {
         link: function($scope, $element, $attrs) {
           $scope.app = new app.App($element, {
             id: "es",
-            base_uri: new Jolokia(Core.getJolokiaUrl()).execute("io.fabric8.insight:type=Elasticsearch","getRestUrl","insight")
+            base_uri: new Jolokia(Core.getJolokiaUrl()).execute("io.fabric8.insight:type=Elasticsearch2","getRestUrl","insight")
           });
         }
       };
