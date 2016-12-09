@@ -5,53 +5,62 @@ module.exports = function(grunt) {
 	// Project configuration.
 	grunt.initConfig({
 		clean: {
-			dist: {
-				src: ['dist']
+			_site: {
+				src: ['_site']
 			}
 		},
 		concat: {
 			vendorjs: {
 				src: fileSets.vendorJs,
-				dest: 'dist/vendor.js'
+				dest: '_site/vendor.js'
 			},
 			vendorcss: {
 				src: fileSets.vendorCss,
-				dest: 'dist/vendor.css'
+				dest: '_site/vendor.css'
 			},
 			appjs: {
 				src: fileSets.srcJs,
-				dest: 'dist/app.js'
+				dest: '_site/app.js'
 			},
 			appcss: {
 				src: fileSets.srcCss,
-				dest: 'dist/app.css'
+				dest: '_site/app.css'
 			},
       hawtiojs: {
         src: fileSets.hawtioJs,
-        dest: 'dist/hawtioPlugin.js'
+        dest: '_site/hawtioPlugin.js'
       },
       hawtiocss: {
         src: fileSets.hawtioCss,
-        dest: 'dist/hawtioPlugin.css'
+        dest: '_site/hawtioPlugin.css'
       }
 		},
 
 		copy: {
+			site_index: {
+				src: 'index.html',
+				dest: '_site/index.html',
+				options: {
+					process: function( src ) {
+						return src.replace(/_site\//g, "");
+					}
+				}
+			},
 			base: {
 				expand: true,
 				cwd: 'src/app/base/',
 				src: [ '*.gif', '*.png', '*.css' ],
-				dest: 'dist/base/'
+				dest: '_site/base/'
 			},
 			iconFonts: {
 				expand: true,
 				cwd: 'src/vendor/font-awesome/fonts/',
 				src: '**',
-				dest: 'dist/fonts'
+				dest: '_site/fonts'
 			},
 			i18n: {
 				src: 'src/vendor/i18n/i18n.js',
-				dest: 'dist/i18n.js'
+				dest: '_site/i18n.js'
 			},
 			lang: {
 				expand: true,
@@ -62,7 +71,7 @@ module.exports = function(grunt) {
 			index: {
 				expand: true,
 				src: 'index.html',
-        dest: 'dist/',
+				dest: '_site/lang/',
         options: {
           process: function (content, srcpath) {
             return content.replace(/dist\//g, "");

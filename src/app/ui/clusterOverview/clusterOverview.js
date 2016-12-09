@@ -89,15 +89,30 @@
 					}.bind(this)
 				})
 			});
+			this._indicesSort = this.prefs.get( "clusterOverview-indicesSort") || "desc";
+			this._indicesSortMenu = new ui.MenuButton({
+				label: i18n.text( "Preference.SortIndices" ),
+				menu: new ui.SelectMenuPanel({
+					value: this._indicesSort,
+					items: [
+						{ value: "desc", text: i18n.text( "SortIndices.Descending" ) },
+						{ value: "asc", text: i18n.text( "SortIndices.Ascending" ) } ],
+					onSelect: function( panel, event ) {
+						this._indicesSort = event.value;
+						this.prefs.set( "clusterOverview-indicesSort", this._indicesSort );
+						this.draw_handler();
+					}.bind(this)
+				})
+			});
 			this._aliasRenderer = this.prefs.get( "clusterOverview-aliasRender" ) || "full";
 			this._aliasMenu = new ui.MenuButton({
-				label: "View Aliases",
+				label: i18n.text( "Preference.ViewAliases" ),
 				menu: new ui.SelectMenuPanel({
 					value: this._aliasRenderer,
 					items: [
-						{ value: "full", text: "Grouped" },
-						{ value: "list", text: "List" },
-						{ value: "none", text: "None" } ],
+						{ value: "full", text: i18n.text( "ViewAliases.Grouped" ) },
+						{ value: "list", text: i18n.text( "ViewAliases.List" ) },
+						{ value: "none", text: i18n.text( "ViewAliases.None" ) } ],
 					onSelect: function( panel, event ) {
 						this._aliasRenderer = event.value;
 						this.prefs.set( "clusterOverview-aliasRender", this._aliasRenderer );
@@ -107,7 +122,7 @@
 			});
 			this._indexFilter = new ui.TextField({
 				value: this.prefs.get("clusterOverview-indexFilter"),
-				placeholder: "Index Filter",
+				placeholder: i18n.text( "Overview.IndexFilter" ),
 				onchange: function( indexFilter ) {
 					this.prefs.set("clusterOverview-indexFilter", indexFilter.val() );
 					this.draw_handler();
@@ -173,9 +188,11 @@
 			$.each(clusterState.routing_table.indices, function(name, index){
 				indexNames.push(name);
 			});
-			indexNames.sort().filter( indexFilter ).forEach(function(name) {
-				var index = clusterState.routing_table.indices[name];
-				$.each(index.shards, function(name, shard) {
+			indexNames.sort();
+			if (this._indicesSort === "desc") indexNames.reverse();
+			indexNames.filter( indexFilter ).forEach(function(name) {
+				var indexObject = clusterState.routing_table.indices[name];
+				$.each(indexObject.shards, function(name, shard) {
 					shard.forEach(function(replica){
 						var node = replica.node;
 						if(node === null) { node = "Unassigned"; }
@@ -184,13 +201,13 @@
 						var routings = nodes[getIndexForNode(node)].routings;
 						var indexIndex = getIndexForIndex(routings, index);
 						var replicas = routings[indexIndex].replicas;
-						if(node === "Unassigned" || !status.indices[index].shards[shard]) {
+						if(node === "Unassigned" || !indexObject.shards[shard]) {
 							replicas.push({ replica: replica });
 						} else {
 							replicas[shard] = {
 								replica: replica,
-								status: status.indices[index].shards[shard].filter(function(replica) {
-									return replica.routing.node === node;
+								status: indexObject.shards[shard].filter(function(replica) {
+									return replica.node === node;
 								})[0]
 							};
 						}
@@ -269,6 +286,7 @@
 					label: i18n.text("Overview.PageTitle"),
 					left: [
 						this._nodeSortMenu,
+						this._indicesSortMenu,
 						this._aliasMenu,
 						this._indexFilter
 					],

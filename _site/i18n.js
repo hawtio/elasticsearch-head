@@ -69,21 +69,23 @@
 })();
 
 //(function() {
-//  var userLang = window.navigator.language || window.navigator.userLanguage;
-//  var scripts = document.getElementsByTagName('script');
-//  var data = scripts[ scripts.length - 1].dataset;
-//  if( ! data["langs"] ) {
-//    return;
-//  }
-//  var langs = data["langs"].split(/\s*,\s*/);
-//  var script0 = scripts[0];
-//  function install( lang ) {
-//    var s = document.createElement("script");
-//    s.src = data["basedir"] + "/" + lang + '_strings.js';
-//    s.async = false;
-//    script0.parentNode.appendChild(s);
-//    script0 = s;
-//  }
+//	var nav = window.navigator;
+//	var userLang = ( nav.languages && nav.languages[0] ) || nav.language || nav.userLanguage;
+//	var scripts = document.getElementsByTagName('script');
+//	var data = scripts[ scripts.length - 1].dataset;
+//	if( ! data["langs"] ) {
+//		return;
+//	}
+//	var langs = data["langs"].split(/\s*,\s*/);
+//	var script0 = scripts[0];
+//	function install( lang ) {
+//		var s = document.createElement("script");
+//		s.src = data["basedir"] + "/" + lang + '_strings.js';
+//		s.async = false;
+//		script0.parentNode.appendChild(s);
+//		script0 = s;
+//	}
+
 
 //  install( langs.shift() ); // always install primary language
 //  userLang && langs

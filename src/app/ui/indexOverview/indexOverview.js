@@ -60,7 +60,7 @@
 						var data = fields.getData();
 						var name = data["_name"];
 						delete data["_name"];
-						this.config.cluster.put( name, JSON.stringify({ settings: { index: data } }), function(d) {
+						this.config.cluster.put( encodeURIComponent( name ), JSON.stringify({ settings: { index: data } }), function(d) {
 							dialog.close();
 							alert(JSON.stringify(d));
 							this._clusterState.refresh();
@@ -91,8 +91,8 @@
 				{ tag: "TD", children: [
 					{ tag: "H3", text: index.name }
 				] },
-				{ tag: "TD", text: ut.byteSize_template( index.state.index.primary_size_in_bytes ) + "/" + ut.byteSize_template( index.state.index.size_in_bytes ) },
-				{ tag: "TD", text: ut.count_template( index.state.docs.num_docs ) }
+				{ tag: "TD", text: ut.byteSize_template( index.state.primaries.store.size_in_bytes ) + "/" + ut.byteSize_template( index.state.total.store.size_in_bytes ) },
+				{ tag: "TD", text: ut.count_template( index.state.primaries.docs.count ) }
 			] }
 		); },
 		_main_template: function() {

@@ -40,8 +40,10 @@
 					}
 				}
 			}
-			for(var type in data[this.config.index].mappings) {
-				scan_properties([type], data[this.config.index].mappings[type]);
+			if (data[this.config.index]){
+				for(var type in data[this.config.index].mappings) {
+					scan_properties([type], data[this.config.index].mappings[type]);
+				}
 			}
 
 			filters.sort( function(a, b) {
@@ -123,7 +125,7 @@
 			if(spec.type === 'match_all') {
 			} else if(spec.type === '_all') {
 				ops = ["query_string"];
-			} else if(spec.type === 'string') {
+			} else if(spec.type === 'string' || spec.type === 'text' || spec.type === 'keyword') {
 				ops = ["term", "wildcard", "prefix", "fuzzy", "range", "query_string", "text", "missing"];
 			} else if(spec.type === 'long' || spec.type === 'integer' || spec.type === 'float' ||
 					spec.type === 'byte' || spec.type === 'short' || spec.type === 'double') {
@@ -134,6 +136,8 @@
 				ops = ["missing"];
 			} else if(spec.type === 'ip') {
 				ops = ["term", "range", "fuzzy", "query_string", "missing"];
+			} else if(spec.type === 'boolean') {
+				ops = ["term"]
 			}
 			select.after({ tag: "SELECT", cls: "op", onchange: this._changeQueryOp_handler, children: ops.map(ut.option_template) });
 			select.next().change();
@@ -184,9 +188,9 @@
 		
 		_range_template: function() {
 			return { tag: "SPAN", cls: "range", children: [
-				{ tag: "SELECT", cls: "lowop", children: ["from", "gt", "gte"].map(ut.option_template) },
+				{ tag: "SELECT", cls: "lowop", children: ["gt", "gte"].map(ut.option_template) },
 				{ tag: "INPUT", type: "text", cls: "lowqual" },
-				{ tag: "SELECT", cls: "highop", children: ["to", "lt", "lte"].map(ut.option_template) },
+				{ tag: "SELECT", cls: "highop", children: ["lt", "lte"].map(ut.option_template) },
 				{ tag: "INPUT", type: "text", cls: "highqual" }
 			]};
 		},

@@ -51,7 +51,7 @@
 			}).open();
 		},
 		_postIndexAction_handler: function(action, index, redraw) {
-			this.cluster.post(index.name + "/" + action, null, function(r) {
+			this.cluster.post(encodeURIComponent( index.name ) + "/" + encodeURIComponent( action ), null, function(r) {
 				alert(JSON.stringify(r));
 				redraw && this.fire("redraw");
 			}.bind(this));
@@ -70,7 +70,7 @@
 				body: new ui.PanelForm({ fields: fields }),
 				onCommit: function( panel, args ) {
 					if(fields.validate()) {
-						this.cluster.post(index.name + "/_optimize", fields.getData(), function(r) {
+						this.cluster.post(encodeURIComponent( index.name ) + "/_optimize", fields.getData(), function(r) {
 							alert(JSON.stringify(r));
 						});
 						dialog.close();
@@ -79,13 +79,13 @@
 			}).open();
 		},
 		_testAnalyser_handler: function(index) {
-			this.cluster.get(index.name + "/_analyze?text=" + prompt( i18n.text("IndexCommand.TextToAnalyze") ), function(r) {
+			this.cluster.get(encodeURIComponent( index.name ) + "/_analyze?text=" + encodeURIComponent( prompt( i18n.text("IndexCommand.TextToAnalyze") ) ), function(r) {
 				alert(JSON.stringify(r, true, "  "));
 			});
 		},
 		_deleteIndexAction_handler: function(index) {
 			if( prompt( i18n.text("AliasForm.DeleteAliasMessage", i18n.text("Command.DELETE"), index.name ) ) === i18n.text("Command.DELETE") ) {
-				this.cluster["delete"](index.name, null, function(r) {
+				this.cluster["delete"](encodeURIComponent( index.name ), null, function(r) {
 					alert(JSON.stringify(r));
 					this.fire("redraw");
 				}.bind(this) );
@@ -93,7 +93,7 @@
 		},
 		_shutdownNode_handler: function(node) {
 			if(prompt( i18n.text("IndexCommand.ShutdownMessage", i18n.text("Command.SHUTDOWN"), node.cluster.name ) ) === i18n.text("Command.SHUTDOWN") ) {
-				this.cluster.post( "_cluster/nodes/" + node.name + "/_shutdown", null, function(r) {
+				this.cluster.post( "_cluster/nodes/" + encodeURIComponent( node.name ) + "/_shutdown", null, function(r) {
 					alert(JSON.stringify(r));
 					this.fire("redraw");
 				}.bind(this));
@@ -217,8 +217,8 @@
 		); },
 		_indexHeader_template: function( index ) {
 			var closed = index.state === "close";
-			var line1 = closed ? "index: close" : ( "size: " + (index.status && index.status.index ? ut.byteSize_template( index.status.index.primary_size_in_bytes ) + " (" + ut.byteSize_template( index.status.index.size_in_bytes ) + ")" : "unknown" ) ); 
-			var line2 = closed ? "\u00A0" : ( "docs: " + (index.status && index.status.docs ? index.status.docs.num_docs.toLocaleString() + " (" + index.status.docs.max_doc.toLocaleString() + ")" : "unknown" ) );
+			var line1 = closed ? "index: close" : ( "size: " + (index.status && index.status.primaries && index.status.total ? ut.byteSize_template( index.status.primaries.store.size_in_bytes ) + " (" + ut.byteSize_template( index.status.total.store.size_in_bytes ) + ")" : "unknown" ) );
+			var line2 = closed ? "\u00A0" : ( "docs: " + (index.status && index.status.primaries && index.status.primaries.docs && index.status.total && index.status.total.docs ? index.status.primaries.docs.count.toLocaleString() + " (" + (index.status.total.docs.count + index.status.total.docs.deleted).toLocaleString() + ")" : "unknown" ) );
 			return index.name ? { tag: "TH", cls: (closed ? "close" : ""), children: [
 				{ tag: "H3", text: index.name },
 				{ tag: "DIV", text: line1 },

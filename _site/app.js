@@ -694,6 +694,10 @@
 
 	var coretype_map = {
 		"string" : "string",
+		"keyword" : "string",
+		"text" : "string",
+		"byte" : "number",
+		"short" : "number",
 		"long" : "number",
 		"integer" : "number",
 		"float" : "number",
@@ -748,7 +752,7 @@
 
 			function createField( mapping, index, type, path, name ) {
 				var dpath = [ index, type ].concat( path ).join( "." );
-				var field_name = mapping.index_name || name;
+				var field_name = mapping.index_name || path.join( "." );
 				var field = paths[ dpath ] = fields[ field_name ] || $.extend({
 					field_name : field_name,
 					core_type : coretype_map[ mapping.type ],
@@ -824,9 +828,39 @@
 		},
 		init: function() {
 			this._super();
+			var _cluster = this.config.cluster;
 			this.config.cluster.get("_cluster/state", function(data) {
 				this.metaData = new app.data.MetaData({state: data});
-				this.fire("ready", this.metaData,  { originalData: data }); // TODO originalData needed for legacy ui.FilterBrowser
+				this.fire("ready", this.metaData,  { originalData: data, "k": 1 }); // TODO originalData needed for legacy ui.FilterBrowser
+			}.bind(this), function() {
+				
+				var _this = this;
+				
+				_cluster.get("_all", function( data ) {
+					clusterState = {routing_table:{indices:{}}, metadata:{indices:{}}};
+					
+					for(var k in data) {
+						clusterState["routing_table"]["indices"][k] = {"shards":{"1":[{
+                            "state":"UNASSIGNED",
+                            "primary":false,
+                            "node":"unknown",
+                            "relocating_node":null,
+                            "shard":'?',
+                            "index":k
+                        }]}};
+						
+
+						clusterState["metadata"]["indices"][k] = {};
+						clusterState["metadata"]["indices"][k]["mappings"] = data[k]["mappings"];
+						clusterState["metadata"]["indices"][k]["aliases"] = $.makeArray(Object.keys(data[k]["aliases"]));
+						clusterState["metadata"]["indices"][k]["settings"] = data[k]["settings"];
+						clusterState["metadata"]["indices"][k]["fields"] = {};
+					}
+					
+					_this.metaData = new app.data.MetaData({state: clusterState});
+					_this.fire("ready", _this.metaData, {originalData: clusterState});
+				});				
+
 			}.bind(this));
 		}
 	});
@@ -851,12 +885,11 @@
 			this.indices = [];
 			this.types = [];
 			this.search = {
-				fields : [ "_parent", "_source" ],
 				query: { bool: { must: [], must_not: [], should: [] } },
 				from: 0,
 				size: this.config.size,
 				sort: [],
-				facets: {},
+				aggs: {},
 				version: true
 			};
 			this.defaultClause = this.addClause();
@@ -959,7 +992,7 @@
 			this.search.from = this.config.size * (page - 1);
 		},
 		setSort: function(index, desc) {
-			var sortd = {}; sortd[index] = { reverse: !!desc };
+			var sortd = {}; sortd[index] = { order: desc ? 'asc' : 'desc' };
 			this.search.sort.unshift( sortd );
 			for(var i = 1; i < this.search.sort.length; i++) {
 				if(Object.keys(this.search.sort[i])[0] === index) {
@@ -1005,15 +1038,15 @@
 				this.defaultClause = this.addClause();
 			}
 		},
-		addFacet: function(facet) {
-			var facetId = "f-" + this.refuid++;
-			this.search.facets[facetId] = facet;
-			this.refmap[facetId] = { facetId: facetId, facet: facet };
-			return facetId;
+		addAggs: function(aggs) {
+			var aggsId = "f-" + this.refuid++;
+			this.search.aggs[aggsId] = aggs;
+			this.refmap[aggsId] = { aggsId: aggsId, aggs: aggs };
+			return aggsId;
 		},
-		removeFacet: function(facetId) {
-			delete this.search.facets[facetId];
-			delete this.refmap[facetId];
+		removeAggs: function(aggsId) {
+			delete this.search.aggs[aggsId];
+			delete this.refmap[aggsId];
 		},
 		_setClause: function(value, field, op, bool) {
 			var clause = {}, query = {};
@@ -1055,9 +1088,9 @@
 		_results_handler: function(query, res) {
 			this._getSummary(res);
 			this._getMeta(res);
-			var sort = query.search.sort[0] || { "_score": { reverse: false }};
+			var sort = query.search.sort[0] || { "_score": { order: "asc" }};
 			var sortField = Object.keys(sort)[0];
-			this.sort = { column: sortField, dir: (sort[sortField].reverse ? "asc" : "desc") };
+			this.sort = { column: sortField, dir: sort[sortField].order };
 			this._getData(res, this.config.metadata);
 			this.fire("data", this);
 		},
@@ -1144,7 +1177,7 @@
 				from: 0,
 				size: this.config.size,
 				sort: [],
-				facets: {}
+				aggs: {}
 			};
 			this.defaultClause = this.addClause();
 		},
@@ -1189,7 +1222,7 @@
 				filter["missing"] = missing
 				query["filter"] = filter;
 			} else {
-				query[field] = value;
+				query[field.substring(field.indexOf(".")+1)] = value;
 			}
 			clause[op] = query;
 			this.search.query.bool[bool].push(clause);
@@ -1294,15 +1327,15 @@
 				}
 			},  params) );
 		},
-		"get": function(path, success) { return this.request( { type: "GET", path: path, success: success } ); },
-		"post": function(path, data, success) { return this.request( { type: "POST", path: path, data: data, success: success } ); },
-		"put": function(path, data, success) { return this.request( { type: "PUT", path: path, data: data, success: success } ); },
-		"delete": function(path, data, success) { return this.request( { type: "DELETE", path: path, data: data, success: success } ); }
+		"get": function(path, success, error) { return this.request( { type: "GET", path: path, success: success, error: error } ); },
+		"post": function(path, data, success, error) { return this.request( { type: "POST", path: path, data: data, success: success, error: error } ); },
+		"put": function(path, data, success, error) { return this.request( { type: "PUT", path: path, data: data, success: success, error: error } ); },
+		"delete": function(path, data, success, error) { return this.request( { type: "DELETE", path: path, data: data, success: success, error: error } ); }
 	});
 
 })( this.jQuery, this.app );
 
-(function( app ) {
+	(function( app ) {
 
 	var services = app.ns("services");
 	var ux = app.ns("ux");
@@ -1320,30 +1353,61 @@
 			this.clusterNodes = null;
 		},
 		refresh: function() {
-			var self = this, clusterState, status, nodeStats, clusterNodes; 
+			var self = this, clusterState, status, nodeStats, clusterNodes, clusterHealth;
 			function updateModel() {
-				if( clusterState && status && nodeStats && clusterNodes ) {
+				if( clusterState && status && nodeStats && clusterNodes && clusterHealth ) {
 					this.clusterState = clusterState;
 					this.status = status;
 					this.nodeStats = nodeStats;
 					this.clusterNodes = clusterNodes;
+					this.clusterHealth = clusterHealth;
 					this.fire( "data", this );
 				}
 			}
-			this.cluster.get("_cluster/state", function( data ) {
+			var _cluster = this.cluster;
+			_cluster.get("_cluster/state", function( data ) {
 				clusterState = data;
 				updateModel.call( self );
+			},function() {
+				
+				_cluster.get("_all", function( data ) {
+					clusterState = {routing_table:{indices:{}}, metadata:{indices:{}}};
+					
+					for(var k in data) {
+						clusterState["routing_table"]["indices"][k] = {"shards":{"1":[{
+                            "state":"UNASSIGNED",
+                            "primary":false,
+                            "node":"unknown",
+                            "relocating_node":null,
+                            "shard":'?',
+                            "index":k
+                        }]}};
+						
+
+						clusterState["metadata"]["indices"][k] = {};
+						clusterState["metadata"]["indices"][k]["mappings"] = data[k]["mappings"];
+						clusterState["metadata"]["indices"][k]["aliases"] = $.makeArray(Object.keys(data[k]["aliases"]));
+						clusterState["metadata"]["indices"][k]["settings"] = data[k]["settings"];
+					}
+					
+					updateModel.call( self );
+				});
+				
 			});
-			this.cluster.get("_status", function( data ) {
+			this.cluster.get("_stats", function( data ) {
 				status = data;
 				updateModel.call( self );
 			});
-			this.cluster.get("_nodes/stats?all=true", function( data ) {
+			this.cluster.get("_nodes/stats", function( data ) {
 				nodeStats = data;
 				updateModel.call( self );
 			});
 			this.cluster.get("_nodes", function( data ) {
 				clusterNodes = data;
+				updateModel.call( self );
+			});
+			this.cluster.get("_cluster/health", function( data ) {
+				clusterHealth = data;
 				updateModel.call( self );
 			});
 		},
@@ -1362,10 +1426,15 @@
 		_clusterNodes_handler: function(nodes) {
 			this.clusterNodes = nodes;
 			this.redraw("clusterNodes");
+		},
+		_clusterHealth_handler: function(health) {
+			this.clusterHealth = health;
+			this.redraw("status");
 		}
 	});
 
 })( this.app );
+
 (function( $, joey, app ) {
 
 	var ui = app.ns("ui");
@@ -2088,7 +2157,9 @@
 			this.attach( parent );
 		},
 		_downloadLinkGenerator_handler: function() {
-			this._downloadLink.attr("href", "data:text/csv;chatset=utf-8," + window.encodeURIComponent( this._csvText ) );
+			var csvData = new Blob( [ this._csvText ], { type: 'text/csv' });
+			var csvURL = URL.createObjectURL( csvData );
+			this._downloadLink.attr( "href", csvURL );
 			this._downloadLink.show();
 		},
 		_parseResults: function( results ) {
@@ -2431,17 +2502,7 @@
 			}
 		},
 		getSpec: function(fieldName) {
-			var fieldNameParts = fieldName.split('.');
-			var namePart = 0;
-			var spec = this.metadata.fields[fieldNameParts[namePart]];
-			while (typeof spec.fields !== "undefined") {
-				namePart++;
-				if (typeof spec.fields[fieldNameParts[namePart]] === "undefined") {
-					break;
-				}
-				spec =  spec.fields[fieldNameParts[namePart]];
-			}
-			return spec;
+			return this.metadata.fields[fieldName];
 		},
 		_selectAlias_handler: function(jEv) {
 			var indices = (jEv.target.selectedIndex === 0) ? [] : this.metadata.getIndices($(jEv.target).val());
@@ -2642,7 +2703,9 @@
 			] };
 		},
 		_filters_template: function() {
-			var fields = Object.keys( this.metadata.fields ).sort();
+			var _metadataFields = this.metadata.fields;
+			var fields = Object.keys( _metadataFields ).sort()
+				.filter(function(d) { return (_metadataFields[d].core_type !== undefined); });
 			return { tag: "DIV", cls: "uiQueryFilter-section uiQueryFilter-filters", children: [
 				{ tag: "HEADER", text: i18n.text("QueryFilter-Header-Fields") },
 				{ tag: "DIV", children: fields.map( function(name ) {
@@ -3053,7 +3116,7 @@
 			}).open();
 		},
 		_postIndexAction_handler: function(action, index, redraw) {
-			this.cluster.post(index.name + "/" + action, null, function(r) {
+			this.cluster.post(encodeURIComponent( index.name ) + "/" + encodeURIComponent( action ), null, function(r) {
 				alert(JSON.stringify(r));
 				redraw && this.fire("redraw");
 			}.bind(this));
@@ -3072,7 +3135,7 @@
 				body: new ui.PanelForm({ fields: fields }),
 				onCommit: function( panel, args ) {
 					if(fields.validate()) {
-						this.cluster.post(index.name + "/_optimize", fields.getData(), function(r) {
+						this.cluster.post(encodeURIComponent( index.name ) + "/_optimize", fields.getData(), function(r) {
 							alert(JSON.stringify(r));
 						});
 						dialog.close();
@@ -3081,13 +3144,13 @@
 			}).open();
 		},
 		_testAnalyser_handler: function(index) {
-			this.cluster.get(index.name + "/_analyze?text=" + prompt( i18n.text("IndexCommand.TextToAnalyze") ), function(r) {
+			this.cluster.get(encodeURIComponent( index.name ) + "/_analyze?text=" + encodeURIComponent( prompt( i18n.text("IndexCommand.TextToAnalyze") ) ), function(r) {
 				alert(JSON.stringify(r, true, "  "));
 			});
 		},
 		_deleteIndexAction_handler: function(index) {
 			if( prompt( i18n.text("AliasForm.DeleteAliasMessage", i18n.text("Command.DELETE"), index.name ) ) === i18n.text("Command.DELETE") ) {
-				this.cluster["delete"](index.name, null, function(r) {
+				this.cluster["delete"](encodeURIComponent( index.name ), null, function(r) {
 					alert(JSON.stringify(r));
 					this.fire("redraw");
 				}.bind(this) );
@@ -3095,7 +3158,7 @@
 		},
 		_shutdownNode_handler: function(node) {
 			if(prompt( i18n.text("IndexCommand.ShutdownMessage", i18n.text("Command.SHUTDOWN"), node.cluster.name ) ) === i18n.text("Command.SHUTDOWN") ) {
-				this.cluster.post( "_cluster/nodes/" + node.name + "/_shutdown", null, function(r) {
+				this.cluster.post( "_cluster/nodes/" + encodeURIComponent( node.name ) + "/_shutdown", null, function(r) {
 					alert(JSON.stringify(r));
 					this.fire("redraw");
 				}.bind(this));
@@ -3219,8 +3282,8 @@
 		); },
 		_indexHeader_template: function( index ) {
 			var closed = index.state === "close";
-			var line1 = closed ? "index: close" : ( "size: " + (index.status && index.status.index ? ut.byteSize_template( index.status.index.primary_size_in_bytes ) + " (" + ut.byteSize_template( index.status.index.size_in_bytes ) + ")" : "unknown" ) ); 
-			var line2 = closed ? "\u00A0" : ( "docs: " + (index.status && index.status.docs ? index.status.docs.num_docs.toLocaleString() + " (" + index.status.docs.max_doc.toLocaleString() + ")" : "unknown" ) );
+			var line1 = closed ? "index: close" : ( "size: " + (index.status && index.status.primaries && index.status.total ? ut.byteSize_template( index.status.primaries.store.size_in_bytes ) + " (" + ut.byteSize_template( index.status.total.store.size_in_bytes ) + ")" : "unknown" ) );
+			var line2 = closed ? "\u00A0" : ( "docs: " + (index.status && index.status.primaries && index.status.primaries.docs && index.status.total && index.status.total.docs ? index.status.primaries.docs.count.toLocaleString() + " (" + (index.status.total.docs.count + index.status.total.docs.deleted).toLocaleString() + ")" : "unknown" ) );
 			return index.name ? { tag: "TH", cls: (closed ? "close" : ""), children: [
 				{ tag: "H3", text: index.name },
 				{ tag: "DIV", text: line1 },
@@ -3369,15 +3432,30 @@
 					}.bind(this)
 				})
 			});
+			this._indicesSort = this.prefs.get( "clusterOverview-indicesSort") || "desc";
+			this._indicesSortMenu = new ui.MenuButton({
+				label: i18n.text( "Preference.SortIndices" ),
+				menu: new ui.SelectMenuPanel({
+					value: this._indicesSort,
+					items: [
+						{ value: "desc", text: i18n.text( "SortIndices.Descending" ) },
+						{ value: "asc", text: i18n.text( "SortIndices.Ascending" ) } ],
+					onSelect: function( panel, event ) {
+						this._indicesSort = event.value;
+						this.prefs.set( "clusterOverview-indicesSort", this._indicesSort );
+						this.draw_handler();
+					}.bind(this)
+				})
+			});
 			this._aliasRenderer = this.prefs.get( "clusterOverview-aliasRender" ) || "full";
 			this._aliasMenu = new ui.MenuButton({
-				label: "View Aliases",
+				label: i18n.text( "Preference.ViewAliases" ),
 				menu: new ui.SelectMenuPanel({
 					value: this._aliasRenderer,
 					items: [
-						{ value: "full", text: "Grouped" },
-						{ value: "list", text: "List" },
-						{ value: "none", text: "None" } ],
+						{ value: "full", text: i18n.text( "ViewAliases.Grouped" ) },
+						{ value: "list", text: i18n.text( "ViewAliases.List" ) },
+						{ value: "none", text: i18n.text( "ViewAliases.None" ) } ],
 					onSelect: function( panel, event ) {
 						this._aliasRenderer = event.value;
 						this.prefs.set( "clusterOverview-aliasRender", this._aliasRenderer );
@@ -3387,7 +3465,7 @@
 			});
 			this._indexFilter = new ui.TextField({
 				value: this.prefs.get("clusterOverview-indexFilter"),
-				placeholder: "Index Filter",
+				placeholder: i18n.text( "Overview.IndexFilter" ),
 				onchange: function( indexFilter ) {
 					this.prefs.set("clusterOverview-indexFilter", indexFilter.val() );
 					this.draw_handler();
@@ -3453,9 +3531,11 @@
 			$.each(clusterState.routing_table.indices, function(name, index){
 				indexNames.push(name);
 			});
-			indexNames.sort().filter( indexFilter ).forEach(function(name) {
-				var index = clusterState.routing_table.indices[name];
-				$.each(index.shards, function(name, shard) {
+			indexNames.sort();
+			if (this._indicesSort === "desc") indexNames.reverse();
+			indexNames.filter( indexFilter ).forEach(function(name) {
+				var indexObject = clusterState.routing_table.indices[name];
+				$.each(indexObject.shards, function(name, shard) {
 					shard.forEach(function(replica){
 						var node = replica.node;
 						if(node === null) { node = "Unassigned"; }
@@ -3464,13 +3544,13 @@
 						var routings = nodes[getIndexForNode(node)].routings;
 						var indexIndex = getIndexForIndex(routings, index);
 						var replicas = routings[indexIndex].replicas;
-						if(node === "Unassigned" || !status.indices[index].shards[shard]) {
+						if(node === "Unassigned" || !indexObject.shards[shard]) {
 							replicas.push({ replica: replica });
 						} else {
 							replicas[shard] = {
 								replica: replica,
-								status: status.indices[index].shards[shard].filter(function(replica) {
-									return replica.routing.node === node;
+								status: indexObject.shards[shard].filter(function(replica) {
+									return replica.node === node;
 								})[0]
 							};
 						}
@@ -3549,6 +3629,7 @@
 					label: i18n.text("Overview.PageTitle"),
 					left: [
 						this._nodeSortMenu,
+						this._indicesSortMenu,
 						this._aliasMenu,
 						this._indexFilter
 					],
@@ -3595,20 +3676,19 @@
 			}.bind(this));
 			this.query.search.size = 0;
 			this.query.on("results", this._stat_handler);
-			this.query.on("results", this._facet_handler);
+			this.query.on("results", this._aggs_handler);
 			this.buildHistogram();
 		},
 		buildHistogram: function(query) {
-			this.statFacet = this.query.addFacet({
-				statistical: { field: this.config.spec.field_name },
-				global: true
+			this.statAggs = this.query.addAggs({
+				stats: { field: this.config.spec.field_name }
 			});
 			this.query.query();
-			this.query.removeFacet(this.statFacet);
+			this.query.removeAggs(this.statAggs);
 		},
 		_stat_handler: function(query, results) {
-			if(! results.facets[this.statFacet]) { return; }
-			this.stats = results.facets[this.statFacet];
+			if(! results.aggregations[this.statAggs]) { return; }
+			this.stats = results.aggregations[this.statAggs];
 			// here we are calculating the approximate range  that will give us less than 121 columns
 			var rangeNames = [ "year", "year", "month", "day", "hour", "minute" ];
 			var rangeFactors = [100000, 12, 30, 24, 60, 60000 ];
@@ -3620,23 +3700,22 @@
 				this.intervalRange *= factor;
 				range = range / factor;
 			} while(range > 70);
-			this.dateFacet = this.query.addFacet({
+			this.dateAggs = this.query.addAggs({
 				date_histogram : {
 					field: this.config.spec.field_name,
-					interval: this.intervalName,
-					global: true
+					interval: this.intervalName
 				}
 			});
 			this.query.query();
-			this.query.removeFacet(this.dateFacet);
+			this.query.removeAggs(this.dateAggs);
 		},
-		_facet_handler: function(query, results) {
-			if(! results.facets[this.dateFacet]) { return; }
+		_aggs_handler: function(query, results) {
+			if(! results.aggregations[this.dateAggs]) { return; }
 			var buckets = [], range = this.intervalRange;
 			var min = Math.floor(this.stats.min / range) * range;
 			var prec = [ "year", "month", "day", "hour", "minute", "second" ].indexOf(this.intervalName);
-			results.facets[this.dateFacet].entries.forEach(function(entry) {
-				buckets[parseInt((entry.time - min) / range , 10)] = entry.count;
+			results.aggregations[this.dateAggs].buckets.forEach(function(entry) {
+				buckets[parseInt((entry.key - min) / range , 10)] = entry.doc_count;
 			}, this);
 			for(var i = 0; i < buckets.length; i++) {
 				buckets[i] = buckets[i] || 0;
@@ -3663,7 +3742,7 @@
 		},
 		_main_template: function() { return (
 			{ tag: "DIV", cls: "uiDateHistogram loading", css: { height: "50px" }, children: [
-				i18n.text("General.LoadingFacets")
+				i18n.text("General.LoadingAggs")
 			] }
 		); }
 	});
@@ -3851,8 +3930,10 @@
 					}
 				}
 			}
-			for(var type in data[this.config.index].mappings) {
-				scan_properties([type], data[this.config.index].mappings[type]);
+			if (data[this.config.index]){
+				for(var type in data[this.config.index].mappings) {
+					scan_properties([type], data[this.config.index].mappings[type]);
+				}
 			}
 
 			filters.sort( function(a, b) {
@@ -3934,7 +4015,7 @@
 			if(spec.type === 'match_all') {
 			} else if(spec.type === '_all') {
 				ops = ["query_string"];
-			} else if(spec.type === 'string') {
+			} else if(spec.type === 'string' || spec.type === 'text' || spec.type === 'keyword') {
 				ops = ["term", "wildcard", "prefix", "fuzzy", "range", "query_string", "text", "missing"];
 			} else if(spec.type === 'long' || spec.type === 'integer' || spec.type === 'float' ||
 					spec.type === 'byte' || spec.type === 'short' || spec.type === 'double') {
@@ -3945,6 +4026,8 @@
 				ops = ["missing"];
 			} else if(spec.type === 'ip') {
 				ops = ["term", "range", "fuzzy", "query_string", "missing"];
+			} else if(spec.type === 'boolean') {
+				ops = ["term"]
 			}
 			select.after({ tag: "SELECT", cls: "op", onchange: this._changeQueryOp_handler, children: ops.map(ut.option_template) });
 			select.next().change();
@@ -3995,9 +4078,9 @@
 		
 		_range_template: function() {
 			return { tag: "SPAN", cls: "range", children: [
-				{ tag: "SELECT", cls: "lowop", children: ["from", "gt", "gte"].map(ut.option_template) },
+				{ tag: "SELECT", cls: "lowop", children: ["gt", "gte"].map(ut.option_template) },
 				{ tag: "INPUT", type: "text", cls: "lowqual" },
-				{ tag: "SELECT", cls: "highop", children: ["to", "lt", "lte"].map(ut.option_template) },
+				{ tag: "SELECT", cls: "highop", children: ["lt", "lte"].map(ut.option_template) },
 				{ tag: "INPUT", type: "text", cls: "highqual" }
 			]};
 		},
@@ -4026,7 +4109,7 @@
 			this.update();
 		},
 		update: function() {
-			this.cluster.get( "_status", this._update_handler );
+			this.cluster.get( "_stats", this._update_handler );
 		},
 		
 		_update_handler: function(data) {
@@ -4053,7 +4136,7 @@
 		},
 		
 		_option_template: function(name, index) {
-			return  { tag: "OPTION", value: name, text: i18n.text("IndexSelector.NameWithDocs", name, index.docs.num_docs ) };
+			return  { tag: "OPTION", value: name, text: i18n.text("IndexSelector.NameWithDocs", name, index.primaries.docs.count ) };
 		}
 	});
 
@@ -4075,10 +4158,10 @@
 			});
 			var quicks = [
 				{ text: i18n.text("Nav.Info"), path: "" },
-				{ text: i18n.text("Nav.Status"), path: "_status" },
-				{ text: i18n.text("Nav.NodeStats"), path: "_cluster/nodes/stats" },
-				{ text: i18n.text("Nav.ClusterNodes"), path: "_cluster/nodes" },
-				{ text: i18n.text("Nav.Plugins"), path: "_nodes/plugin" },
+				{ text: i18n.text("Nav.Status"), path: "_stats" },
+				{ text: i18n.text("Nav.NodeStats"), path: "_nodes/stats" },
+				{ text: i18n.text("Nav.ClusterNodes"), path: "_nodes" },
+				{ text: i18n.text("Nav.Plugins"), path: "_nodes/plugins" },
 				{ text: i18n.text("Nav.ClusterState"), path: "_cluster/state" },
 				{ text: i18n.text("Nav.ClusterHealth"), path: "_cluster/health" },
 				{ text: i18n.text("Nav.Templates"), path: "_template" }
@@ -4108,7 +4191,7 @@
 			this._clusterState = this.config.clusterState;
 			this._clusterState.on("data", function( state ) {
 				var shards = state.status._shards;
-				var colour = shards.failed > 0 ? "red" : ( shards.total > shards.successful ? "yellow" : "green" );
+				var colour = state.clusterHealth.status;
 				var name = state.clusterState.cluster_name;
 				this.nameEl.text( name );
 				this.statEl
@@ -4195,7 +4278,7 @@
 						var data = fields.getData();
 						var name = data["_name"];
 						delete data["_name"];
-						this.config.cluster.put( name, JSON.stringify({ settings: { index: data } }), function(d) {
+						this.config.cluster.put( encodeURIComponent( name ), JSON.stringify({ settings: { index: data } }), function(d) {
 							dialog.close();
 							alert(JSON.stringify(d));
 							this._clusterState.refresh();
@@ -4226,8 +4309,8 @@
 				{ tag: "TD", children: [
 					{ tag: "H3", text: index.name }
 				] },
-				{ tag: "TD", text: ut.byteSize_template( index.state.index.primary_size_in_bytes ) + "/" + ut.byteSize_template( index.state.index.size_in_bytes ) },
-				{ tag: "TD", text: ut.count_template( index.state.docs.num_docs ) }
+				{ tag: "TD", text: ut.byteSize_template( index.state.primaries.store.size_in_bytes ) + "/" + ut.byteSize_template( index.state.total.store.size_in_bytes ) },
+				{ tag: "TD", text: ut.count_template( index.state.primaries.docs.count ) }
 			] }
 		); },
 		_main_template: function() {

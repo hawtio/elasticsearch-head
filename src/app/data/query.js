@@ -16,12 +16,11 @@
 			this.indices = [];
 			this.types = [];
 			this.search = {
-				fields : [ "_parent", "_source" ],
 				query: { bool: { must: [], must_not: [], should: [] } },
 				from: 0,
 				size: this.config.size,
 				sort: [],
-				facets: {},
+				aggs: {},
 				version: true
 			};
 			this.defaultClause = this.addClause();
@@ -124,7 +123,7 @@
 			this.search.from = this.config.size * (page - 1);
 		},
 		setSort: function(index, desc) {
-			var sortd = {}; sortd[index] = { reverse: !!desc };
+			var sortd = {}; sortd[index] = { order: desc ? 'asc' : 'desc' };
 			this.search.sort.unshift( sortd );
 			for(var i = 1; i < this.search.sort.length; i++) {
 				if(Object.keys(this.search.sort[i])[0] === index) {
@@ -170,15 +169,15 @@
 				this.defaultClause = this.addClause();
 			}
 		},
-		addFacet: function(facet) {
-			var facetId = "f-" + this.refuid++;
-			this.search.facets[facetId] = facet;
-			this.refmap[facetId] = { facetId: facetId, facet: facet };
-			return facetId;
+		addAggs: function(aggs) {
+			var aggsId = "f-" + this.refuid++;
+			this.search.aggs[aggsId] = aggs;
+			this.refmap[aggsId] = { aggsId: aggsId, aggs: aggs };
+			return aggsId;
 		},
-		removeFacet: function(facetId) {
-			delete this.search.facets[facetId];
-			delete this.refmap[facetId];
+		removeAggs: function(aggsId) {
+			delete this.search.aggs[aggsId];
+			delete this.refmap[aggsId];
 		},
 		_setClause: function(value, field, op, bool) {
 			var clause = {}, query = {};
