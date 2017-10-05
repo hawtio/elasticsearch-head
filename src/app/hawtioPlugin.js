@@ -7,18 +7,20 @@ var EsHead = (function (EsHead) {
     .run(function () {
       EsHead.log.debug("plugin running");
     })
-    .directive('eshead', function() {
+    .directive('eshead', [ 'userDetails', function(userDetails) {
       return {
         restrict: 'A',
         scope: false,
         link: function($scope, $element, $attrs) {
           $scope.app = new app.App($element, {
             id: "es",
-            base_uri: Core.useProxyIfExternal(new Jolokia(Core.getJolokiaUrl()).execute("io.fabric8.insight:type=Elasticsearch","getRestUrl","insight"))
+            base_uri: Core.useProxyIfExternal(new Jolokia(Core.getJolokiaUrl()).execute("io.fabric8.insight:type=Elasticsearch","getRestUrl","insight")),
+            auth_user: userDetails.username,
+            auth_password: userDetails.password
           });
         }
       };
-    });
+    }]);
 
   return EsHead;
 }(EsHead || {}));

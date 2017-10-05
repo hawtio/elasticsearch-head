@@ -1270,24 +1270,7 @@
 			return $.ajax( $.extend({
 				url: this.base_uri + params.path,
 				dataType: "json",
-        xhr: function() {
-          // Get new xhr object using default factory
-          var xhr = jQuery.ajaxSettings.xhr();
-          // Copy the browser's native setRequestHeader method
-          var setRequestHeader = xhr.setRequestHeader;
-          // Replace with a wrapper
-          xhr.setRequestHeader = function(name, value) {
-            // Ignore the X-Requested-With header
-            if (name == 'Authorization') return;
-            // Otherwise call the native setRequestHeader method
-            // Note: setRequestHeader requires its 'this' to be the xhr object,
-            // which is what 'this' is here when executed.
-            setRequestHeader.call(this, name, value);
-          }
-          // pass it on to jQuery
-          return xhr;
-        },
-				error: function(xhr, type, message) {
+		error: function(xhr, type, message) {
 					if("console" in window) {
 						console.log({ "XHR Error": type, "message": message });
 					}
